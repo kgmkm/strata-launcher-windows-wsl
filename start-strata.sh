@@ -45,6 +45,14 @@ cd "$STRATA_DIR" || { echo "NO_STRATA_DIR: $STRATA_DIR"; exit 1; }
 [ -f "$CONFIG_NAME" ] || { echo "NO_CONFIG: $STRATA_DIR/$CONFIG_NAME"; exit 1; }
 LOG="serve-$MODEL.out"
 
+# Refuse a second instance: when the target port already answers, nothing is
+# started. Two large models never fit in RAM together, so a double start hands
+# the OOM killer the live server.
+if curl -s --max-time 8 "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -q 'max_context'; then
+  echo "ALREADY_RUNNING port=$PORT (a server is already serving there; nothing started)"
+  exit 0
+fi
+
 # USE_ESP=0: strip the control-vector arguments into a derived config (original untouched).
 CONFIG="$CONFIG_NAME"
 if [ "$USE_ESP" != "1" ]; then
